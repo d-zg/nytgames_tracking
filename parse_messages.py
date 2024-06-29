@@ -3,8 +3,7 @@ import os
 from datetime import date
 import re
 import pandas as pd
-import gspread
-from  oauth2client.service_account import ServiceAccountCredentials
+
 
 DB_PATH = "/Users/andrewzhang/Library/Messages/chat.db"
 IDS = {
@@ -13,32 +12,6 @@ IDS = {
     "+15022037007": "dn",
     "+19175360320": "dz"
 }
-
-fd = fetch_data.FetchData(db_path=DB_PATH)
-messages = fd.get_messages()
-
-wordle_df = pd.DataFrame(columns=['name', 'score', 'day'])
-mini_df = pd.DataFrame(columns=['name', 'score', 'day'])
-bandle_df = pd.DataFrame(columns=['name', 'score', 'day'])
-
-current_date = date.today()
-
-def write_to_google_sheet(df, sheet_key, sheet_name):
-    # Authenticate and access the Google Sheets API
-    scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
-    creds = ServiceAccountCredentials.from_json_keyfile_name('path/to/credentials.json', scope)
-    client = gspread.authorize(creds)
-
-    # Open the Google Sheet
-    sheet = client.open_by_key(sheet_key).worksheet(sheet_name)
-
-    # Clear the existing content of the sheet
-    sheet.clear()
-
-    # Write the DataFrame to the sheet
-    sheet.update([df.columns.values.tolist()] + df.values.tolist())
-
-    print(f"DataFrame successfully written to Google Sheet: {sheet_name}")
 
 def convert_to_seconds(time_str):
     # Split the time string into minutes and seconds
@@ -53,7 +26,7 @@ def convert_to_seconds(time_str):
     
     return total_seconds
 
-def check_and_handle_games(message, user, date):
+def check_and_handle_games(message, user, date, wordle_df, mini_df, bandle_df):
     name = IDS[user]
     day = date[:10]
     if not message:
@@ -83,17 +56,8 @@ def check_and_handle_games(message, user, date):
             print("Score not found in the message.")
         except ValueError:
             print("Invalid score format.")
-            
 
-for message in messages:
-    user, text, date, _, _, is_me  = message
-    if user in IDS: # and (date[:10] == current_date):
-        check_and_handle_games(text, user, date)
-    if is_me or "0320" in user:
-        check_and_handle_games(text, "+19175360320", date)
-
-
-def create_directory_and_csv_files(current_date):
+def create_directory_and_csv_files(current_date, wordle_df, mini_df, bandle_df):
     # Create a new directory based on the current date
     directory_name = current_date.strftime("%Y-%m-%d")
     os.makedirs(directory_name, exist_ok=True)
@@ -103,12 +67,25 @@ def create_directory_and_csv_files(current_date):
     mini_df.to_csv(os.path.join(directory_name, 'mini.csv'), index=False)
     bandle_df.to_csv(os.path.join(directory_name, 'bandle.csv'), index=False)
     
-    print(f"CSV files created in directory: {directory_name}")
+    print(f"CSV files created in directory: {directory_name}")            
 
+if __name__ == "__main__":
+    fd = fetch_data.FetchData(db_path=DB_PATH)
+    messages = fd.get_messages()
 
-create_directory_and_csv_files(current_date)
-# Assuming you have a DataFrame named 'world_df' and a column named 'name'
-counts = wordle_df['name'].value_counts()
+    wordle_df = pd.DataFrame(columns=['name', 'score', 'day'])
+    mini_df = pd.DataFrame(columns=['name', 'score', 'day'])
+    bandle_df = pd.DataFrame(columns=['name', 'score', 'day'])
 
-# Print the counts
-print(counts)
+    current_date = date.today()
+
+    for message in messages:
+        user, text, day, _, _, is_me  = message
+        if user in IDS: # and (date[:10] == current_date):
+            check_and_handle_games(text, user, day, wordle_df, mini_df, bandle_df)
+        if is_me or "0320" in user:
+            check_and_handle_games(text, "+19175360320", day, wordle_df, mini_df, bandle_df)
+
+    create_directory_and_csv_files(current_date, wordle_df, mini_df, bandle_df)
+    
+    
