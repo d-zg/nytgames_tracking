@@ -1,0 +1,10 @@
+name: nytgames
+channels:
+  - defaults
+  - conda-forge
+dependencies:
+  - pip
+  - pip:
+    - imessage-reader
+    - pandas
+    - openpyxl
